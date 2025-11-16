@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Calendário Dinâmico de Compromissos</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+    background: #f5f5f5;
+  }
+  h1 {
+    text-align: center;
+  }
+  #calendar-container {
+    max-width: 550px;
+    margin: 20px auto;
+  }
+  #calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+  }
+  .day {
+    background: white;
+    padding: 10px;
+    text-align: center;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: 0.2s;
+  }
+  .day:hover {
+    background: #ffd700;
+  }
+  .header {
+    font-weight: bold;
+    text-align: center;
+  }
+  #modal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5);
+    justify-content: center;
+    align-items: center;
+  }
+  #modalContent {
+    background: #fff;
+    padding: 20px;
+    border-radius: 5px;
+    width: 300px;
+  }
+  #compromissos {
+    margin-top: 10px;
+    max-height: 150px;
+    overflow-y: auto;
+    border-top: 1px solid #ddd;
+    padding-top: 5px;
+  }
+  #monthYear {
+    text-align: center;
+    font-size: 20px;
+    margin-bottom: 10px;
+  }
+  #navMonth {
+    display: flex;
+    justify-content: space-between;
+    max-width: 550px;
+    margin: 0 auto;
+  }
+  button {
+    padding: 5px 10px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Calendário de Compromissos</h1>
+
+<div id="navMonth">
+  <button id="prevMonth">&lt; Mês Anterior</button>
+  <div id="monthYear"></div>
+  <button id="nextMonth">Próximo Mês &gt;</button>
+</div>
+
+<div id="calendar-container">
+  <div id="calendar"></div>
+</div>
+
+<div id="modal">
+  <div id="modalContent">
+    <h3 id="dataSelecionada"></h3>
+    <input type="text" id="novoCompromisso" placeholder="Digite compromisso ou valor">
+    <button id="salvarBtn">Salvar</button>
+    <div id="compromissos"></div>
+    <button id="fecharBtn" style="margin-top:10px;">Fechar</button>
+  </div>
+</div>
+
+<script>
+  const calendar = document.getElementById("calendar");
+  const dataSelecionadaEl = document.getElementById("dataSelecionada");
+  const modal = document.getElementById("modal");
+  const novoCompromisso = document.getElementById("novoCompromisso");
+  const salvarBtn = document.getElementById("salvarBtn");
+  const fecharBtn = document.getElementById("fecharBtn");
+  const compromissosDiv = document.getElementById("compromissos");
+  const monthYear = document.getElementById("monthYear");
+  const prevMonth = document.getElementById("prevMonth");
+  const nextMonth = document.getElementById("nextMonth");
+
+  let compromissos = {}; // Armazena compromissos por data
+  let dataSelecionada = "";
+  let currentMonth = new Date().getMonth();
+  let currentYear = new Date().getFullYear();
+
+  const weekdays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+  function renderCalendar(month, year) {
+    calendar.innerHTML = "";
+    // Cabeçalhos
+    weekdays.forEach(day => {
+      const header = document.createElement("div");
+      header.classList.add("header");
+      header.textContent = day;
+      calendar.appendChild(header);
+    });
+
+    monthYear.textContent = `${new Date(year, month).toLocaleString('pt-BR', { month: 'long' })} ${year}`;
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const lastDate = new Date(year, month + 1, 0).getDate();
+
+    // Preencher dias do mês anterior
+    const prevLastDate = new Date(year, month, 0).getDate();
+    for (let i = firstDay - 1; i >= 0; i--) {
+      const emptyDay = document.createElement("div");
+      emptyDay.classList.add("day");
+      emptyDay.style.color = "#bbb";
+      emptyDay.textContent = prevLastDate - i;
+      calendar.appendChild(emptyDay);
+    }
+
+    // Dias do mês atual
+    for (let day = 1; day <= lastDate; day++) {
+      const dayDiv = document.createElement("div");
+      dayDiv.classList.add("day");
+      dayDiv.textContent = day;
+
+      const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+
+      dayDiv.addEventListener("click", () => {
+        dataSelecionada = dateStr;
+        dataSelecionadaEl.textContent = `Compromissos em ${dateStr}`;
+        novoCompromisso.value = "";
+        mostrarCompromissos();
+        modal.style.display = "flex";
+      });
+
+      calendar.appendChild(dayDiv);
+    }
+
+    // Preencher dias do próximo mês para completar semana
+    const totalCells = firstDay + lastDate;
+    const nextDays = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+    for (let i = 1; i <= nextDays; i++) {
+      const nextDay = document.createElement("div");
+      nextDay.classList.add("day");
+      nextDay.style.color = "#bbb";
+      nextDay.textContent = i;
+      calendar.appendChild(nextDay);
+    }
+  }
+
+  function mostrarCompromissos() {
+    compromissosDiv.innerHTML = "";
+    if (compromissos[dataSelecionada] && compromissos[dataSelecionada].length > 0) {
+      compromissos[dataSelecionada].forEach((c, i) => {
+        const p = document.createElement("p");
+        p.textContent = `${i+1}. ${c}`;
+        compromissosDiv.appendChild(p);
+      });
+    } else {
+      compromissosDiv.innerHTML = "<em>Sem compromissos</em>";
+    }
+  }
+
+  salvarBtn.addEventListener("click", () => {
+    const texto = novoCompromisso.value.trim();
+    if (texto === "") return;
+    if (!compromissos[dataSelecionada]) compromissos[dataSelecionada] = [];
+    compromissos[dataSelecionada].push(texto);
+    mostrarCompromissos();
+    novoCompromisso.value = "";
+  });
+
+  fecharBtn.addEventListener("click", () => {
+    modal.style.display = "none";
+  });
+
+  prevMonth.addEventListener("click", () => {
+    currentMonth--;
+    if (currentMonth < 0) {
+      currentMonth = 11;
+      currentYear--;
+    }
+    renderCalendar(currentMonth, currentYear);
+  });
+
+  nextMonth.addEventListener("click", () => {
+    currentMonth++;
+    if (currentMonth > 11) {
+      currentMonth = 0;
+      currentYear++;
+    }
+    renderCalendar(currentMonth, currentYear);
+  });
+
+  renderCalendar(currentMonth, currentYear);
+</script>
+
+</body>
+</html>
